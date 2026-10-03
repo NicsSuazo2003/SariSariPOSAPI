@@ -1,0 +1,6 @@
+@SariSariPOS_HostAddress = http://localhost:5286
+
+GET {{SariSariPOS_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

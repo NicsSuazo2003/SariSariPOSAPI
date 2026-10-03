@@ -1,0 +1,8 @@
+﻿bin/
+obj/
+logs/
+*.user
+.vs/
+.vscode/
+*.log
+run-local.ps1
