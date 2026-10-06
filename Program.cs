@@ -2,7 +2,9 @@ using System.Text;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Serilog;
@@ -63,6 +65,10 @@ builder.Services.AddScoped<ISaleService, SaleService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IQRCodeService, QRCodeService>();
 
+// ── Health Checks ───────────────────────────────────
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>("database", tags: new[] { "db", "ready" });
+
 // ── Validation ──────────────────────────────────────
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
@@ -87,7 +93,6 @@ builder.Services.AddControllers()
     });
 
 // ── Swagger ─────────────────────────────────────────
-// ── Swagger ─────────────────────────────────────────
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -100,19 +105,6 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
-// TEMP: test DB connection
-try
-{
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var canConnect = await db.Database.CanConnectAsync();
-    Console.WriteLine($"DB connection: {(canConnect ? "OK" : "FAILED")}");
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"DB connection ERROR: {ex.Message}");
-}
-
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseCors();
@@ -121,6 +113,35 @@ app.UseAuthorization();
 app.MapControllers();
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// ── Health Checks ───────────────────────────────────
+// Lightweight liveness ping — returns 200 OK with "Healthy".
+// Point your uptime monitor (UptimeRobot, BetterStack, cron-job.org, etc.) here.
+app.MapHealthChecks("/health");
+
+// Readiness check with detailed JSON report (includes DB connectivity).
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var payload = new
+        {
+            status = report.Status.ToString(),
+            timestamp = DateTime.UtcNow,
+            duration = report.TotalDuration.TotalMilliseconds,
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                duration = e.Value.Duration.TotalMilliseconds,
+                description = e.Value.Description,
+                error = e.Value.Exception?.Message
+            })
+        };
+        await context.Response.WriteAsJsonAsync(payload);
+    }
+});
 
 app.Run();
 
