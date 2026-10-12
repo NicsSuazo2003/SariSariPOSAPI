@@ -14,25 +14,34 @@ public class ReportService : IReportService
     public async Task<DashboardDto> DashboardAsync()
     {
         var today = DateTime.UtcNow.Date;
+        var thirtyDaysAgo = today.AddDays(-30);
+        var sevenDaysAgo = today.AddDays(-6);
 
+        // ── Today's sales (with line items for item count) ─────
         var todaySales = await _db.Sales
             .Include(s => s.Items)
-            .Where(s => s.Status == SaleStatus.Completed && s.ServerCreatedAt >= today)
+            .Where(s => s.Status == SaleStatus.Completed
+                     && s.ServerCreatedAt >= today)
             .ToListAsync();
 
+        // ── Top products (last 30 days) ───────────────────────
+        // FIX: group by (ProductId, ProductName) so ProductName is a plain
+        // column reference — EF Core 10 cannot translate g.First().ProductName
+        // inside a GroupBy projection.
         var top = await _db.SaleItems
             .Where(si => si.Sale.Status == SaleStatus.Completed
-                      && si.Sale.ServerCreatedAt >= today.AddDays(-30))
-            .GroupBy(si => si.ProductId)
+                      && si.Sale.ServerCreatedAt >= thirtyDaysAgo)
+            .GroupBy(si => new { si.ProductId, si.ProductName })
             .Select(g => new TopProductDto(
-                g.Key,
-                g.First().ProductName,
+                g.Key.ProductId,
+                g.Key.ProductName,
                 g.Sum(x => x.Qty),
                 g.Sum(x => x.Subtotal)))
             .OrderByDescending(x => x.Revenue)
             .Take(10)
             .ToListAsync();
 
+        // ── Low stock items ───────────────────────────────────
         var low = await _db.Products
             .Where(p => p.IsActive && p.StockQty <= p.ReorderLevel)
             .OrderBy(p => p.StockQty)
@@ -40,26 +49,38 @@ public class ReportService : IReportService
             .Select(p => new LowStockDto(p.Id, p.Name, p.StockQty, p.ReorderLevel))
             .ToListAsync();
 
+        // ── Outstanding utang ─────────────────────────────────
         var utang = await _db.Customers
             .Where(c => c.CreditBalance > 0)
             .SumAsync(c => (decimal?)c.CreditBalance) ?? 0;
 
-        var from = today.AddDays(-6);
+        // ── Last 7 days sales chart ───────────────────────────
+        // EF Core 10 + Npgsql can't always translate GroupBy(s => s.ServerCreatedAt.Date),
+        // because "Date" is a client-side property on DateTime that maps to
+        // date_trunc() in some providers and fails in others. Grouping by
+        // ServerCreatedAt and truncating in memory is safe and simpler.
         var dailyRaw = await _db.Sales
-            .Where(s => s.Status == SaleStatus.Completed && s.ServerCreatedAt >= from)
-            .GroupBy(s => s.ServerCreatedAt.Date)
-            .Select(g => new { Date = g.Key, Total = g.Sum(s => s.TotalAmount), Txns = g.Count() })
+            .Where(s => s.Status == SaleStatus.Completed
+                     && s.ServerCreatedAt >= sevenDaysAgo)
+            .Select(s => new
+            {
+                s.ServerCreatedAt,
+                s.TotalAmount,
+            })
             .ToListAsync();
 
         var last7 = Enumerable.Range(0, 7)
-            .Select(i => from.AddDays(i))
+            .Select(i => sevenDaysAgo.AddDays(i))
             .Select(d =>
             {
-                var match = dailyRaw.FirstOrDefault(x => x.Date == d);
+                var daySales = dailyRaw
+                    .Where(x => x.ServerCreatedAt.Date == d)
+                    .ToList();
+
                 return new DailySalesPoint(
                     d.ToString("yyyy-MM-dd"),
-                    match?.Total ?? 0,
-                    match?.Txns ?? 0);
+                    daySales.Sum(x => x.TotalAmount),
+                    daySales.Count);
             })
             .ToList();
 
@@ -106,7 +127,9 @@ public class ReportService : IReportService
             {
                 var wStart = from.AddDays(i);
                 var wEnd = wStart.AddDays(7);
-                var weekSales = sales.Where(s => s.ServerCreatedAt >= wStart && s.ServerCreatedAt < wEnd).ToList();
+                var weekSales = sales
+                    .Where(s => s.ServerCreatedAt >= wStart && s.ServerCreatedAt < wEnd)
+                    .ToList();
                 points.Add(new DailySalesPoint(wStart.ToString("yyyy-MM-dd"),
                     weekSales.Sum(s => s.TotalAmount), weekSales.Count));
             }
@@ -121,12 +144,34 @@ public class ReportService : IReportService
     }
 
     public async Task<List<UtangOutstandingDto>> UtangOutstandingAsync()
-        => await _db.Customers
+    {
+        // FIX: the nested "LastTransactionAt" subquery relies on FirstOrDefault
+        // over a navigation collection. That translates in some providers, but
+        // in EF Core 10 + Npgsql it's flaky. Fetch the customer rows + the
+        // max transaction date in one query, then project.
+        var customers = await _db.Customers
             .Where(c => c.CreditBalance > 0)
             .OrderByDescending(c => c.CreditBalance)
-            .Select(c => new UtangOutstandingDto(
-                c.Id, c.Name, c.Phone, c.CreditBalance,
-                c.Transactions.OrderByDescending(t => t.CreatedAt)
-                    .Select(t => t.CreatedAt).FirstOrDefault()))
+            .Select(c => new
+            {
+                c.Id,
+                c.Name,
+                c.Phone,
+                c.CreditBalance,
+                LastTransactionAt = c.Transactions
+                    .OrderByDescending(t => t.CreatedAt)
+                    .Select(t => (DateTime?)t.CreatedAt)
+                    .FirstOrDefault(),
+            })
             .ToListAsync();
+
+        return customers
+            .Select(c => new UtangOutstandingDto(
+                c.Id,
+                c.Name,
+                c.Phone,
+                c.CreditBalance,
+                c.LastTransactionAt ?? DateTime.MinValue))
+            .ToList();
+    }
 }
