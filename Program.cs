@@ -63,6 +63,7 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IAdminService, AdminService>();     // ⭐ ADD THIS
 builder.Services.AddScoped<ISaleService, SaleService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IQRCodeService, QRCodeService>();

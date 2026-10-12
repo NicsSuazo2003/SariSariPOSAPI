@@ -3,7 +3,8 @@ namespace SariSariPOS.API.Entities;
 public enum UserRole
 {
     Owner = 0,
-    Cashier = 1
+    Cashier = 1,
+    PlatformAdmin = 2,   // ⭐ can create/manage other tenants
 }
 
 public class User
