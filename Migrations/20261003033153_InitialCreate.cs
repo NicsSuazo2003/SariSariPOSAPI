@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace SariSariPOS.Migrations
+namespace SariSariPOS.API.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration

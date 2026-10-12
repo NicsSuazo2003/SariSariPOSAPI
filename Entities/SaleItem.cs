@@ -1,8 +1,11 @@
-﻿namespace SariSariPOS.API.Entities;
+﻿using SariSariPOS.API.Interfaces;
 
-public class SaleItem
+namespace SariSariPOS.API.Entities;
+
+public class SaleItem : ITenantEntity
 {
     public Guid Id { get; set; }
+    public Guid StoreId { get; set; }
     public Guid SaleId { get; set; }
     public Sale Sale { get; set; } = default!;
     public Guid ProductId { get; set; }

@@ -1,8 +1,11 @@
-﻿namespace SariSariPOS.API.Entities;
+﻿using SariSariPOS.API.Interfaces;
 
-public class AppSettings
+namespace SariSariPOS.API.Entities;
+
+public class AppSettings : ITenantEntity
 {
     public Guid Id { get; set; }
+    public Guid StoreId { get; set; }
     public string? ReceiptHeader { get; set; }
     public string? ReceiptFooter { get; set; }
     public int IdleLockMinutes { get; set; } = 5;

@@ -1,8 +1,11 @@
-﻿namespace SariSariPOS.API.Entities;
+﻿using SariSariPOS.API.Interfaces;
 
-public class IdempotencyRecord
+namespace SariSariPOS.API.Entities;
+
+public class IdempotencyRecord : ITenantEntity
 {
     public Guid Id { get; set; }
+    public Guid StoreId { get; set; }
     public string ClientId { get; set; } = default!;
     public string ResponseJson { get; set; } = default!;
     public DateTime CreatedAt { get; set; }

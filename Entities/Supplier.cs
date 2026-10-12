@@ -1,8 +1,11 @@
-﻿namespace SariSariPOS.API.Entities;
+﻿using SariSariPOS.API.Interfaces;
 
-public class Supplier
+namespace SariSariPOS.API.Entities;
+
+public class Supplier : ITenantEntity
 {
     public Guid Id { get; set; }
+    public Guid StoreId { get; set; }
     public string Name { get; set; } = default!;
     public string? Contact { get; set; }
     public string? Address { get; set; }

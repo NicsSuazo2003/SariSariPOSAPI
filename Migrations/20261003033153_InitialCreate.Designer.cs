@@ -9,7 +9,7 @@ using SariSariPOS.API.Data;
 
 #nullable disable
 
-namespace SariSariPOS.Migrations
+namespace SariSariPOS.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     [Migration("20261003033153_InitialCreate")]

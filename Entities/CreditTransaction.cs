@@ -1,10 +1,13 @@
-﻿namespace SariSariPOS.API.Entities;
+﻿using SariSariPOS.API.Interfaces;
+
+namespace SariSariPOS.API.Entities;
 
 public enum CreditTransactionType { Utang, Payment, Adjustment }
 
-public class CreditTransaction
+public class CreditTransaction : ITenantEntity
 {
     public Guid Id { get; set; }
+    public Guid StoreId { get; set; }
     public Guid CustomerId { get; set; }
     public Customer Customer { get; set; } = default!;
     public CreditTransactionType Type { get; set; }

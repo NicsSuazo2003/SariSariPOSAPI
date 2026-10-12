@@ -18,6 +18,9 @@ public class LoginRequestValidator : AbstractValidator<LoginRequest>
 {
     public LoginRequestValidator()
     {
-        RuleFor(x => x.Pin).NotEmpty();
+        RuleFor(x => x.StoreCode).NotEmpty().MaximumLength(16)
+            .WithMessage("Store code is required");
+        RuleFor(x => x.Pin).NotEmpty().Length(4, 6).Matches("^[0-9]+$")
+            .WithMessage("PIN must be 4-6 digits");
     }
 }

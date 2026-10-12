@@ -8,7 +8,7 @@ using SariSariPOS.API.Data;
 
 #nullable disable
 
-namespace SariSariPOS.Migrations
+namespace SariSariPOS.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     partial class AppDbContextModelSnapshot : ModelSnapshot
@@ -48,10 +48,16 @@ namespace SariSariPOS.Migrations
                     b.Property<string>("ReceiptHeader")
                         .HasColumnType("text");
 
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("StoreId")
+                        .IsUnique();
 
                     b.ToTable("app_settings", (string)null);
                 });
@@ -76,9 +82,12 @@ namespace SariSariPOS.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
+                    b.HasIndex("StoreId", "Name")
                         .IsUnique();
 
                     b.ToTable("categories", (string)null);
@@ -113,14 +122,19 @@ namespace SariSariPOS.Migrations
                     b.Property<Guid?>("SaleId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedAt");
-
                     b.HasIndex("CustomerId");
+
+                    b.HasIndex("StoreId", "CreatedAt");
+
+                    b.HasIndex("StoreId", "CustomerId");
 
                     b.ToTable("credit_transactions", (string)null);
                 });
@@ -160,14 +174,17 @@ namespace SariSariPOS.Migrations
                     b.Property<int>("ShortcutOrder")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IsShortcut");
+                    b.HasIndex("StoreId", "IsShortcut");
 
-                    b.HasIndex("QrCode")
+                    b.HasIndex("StoreId", "QrCode")
                         .IsUnique();
 
                     b.ToTable("customers", (string)null);
@@ -191,9 +208,12 @@ namespace SariSariPOS.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("ClientId")
+                    b.HasIndex("StoreId", "ClientId")
                         .IsUnique();
 
                     b.ToTable("idempotency_records", (string)null);
@@ -254,6 +274,9 @@ namespace SariSariPOS.Migrations
                     b.Property<int>("StockQty")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Unit")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -264,15 +287,17 @@ namespace SariSariPOS.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Barcode")
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("StoreId", "Barcode")
                         .IsUnique()
                         .HasFilter("\"Barcode\" IS NOT NULL");
 
-                    b.HasIndex("CategoryId");
+                    b.HasIndex("StoreId", "CategoryId");
 
-                    b.HasIndex("IsFavorite");
+                    b.HasIndex("StoreId", "IsFavorite");
 
-                    b.HasIndex("QrCode")
+                    b.HasIndex("StoreId", "QrCode")
                         .IsUnique();
 
                     b.ToTable("products", (string)null);
@@ -327,6 +352,9 @@ namespace SariSariPOS.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("Subtotal")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -337,15 +365,15 @@ namespace SariSariPOS.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClientId")
-                        .IsUnique();
-
                     b.HasIndex("CustomerId");
 
-                    b.HasIndex("ReceiptNo")
+                    b.HasIndex("StoreId", "ClientId")
                         .IsUnique();
 
-                    b.HasIndex("ServerCreatedAt");
+                    b.HasIndex("StoreId", "ReceiptNo")
+                        .IsUnique();
+
+                    b.HasIndex("StoreId", "ServerCreatedAt");
 
                     b.ToTable("sales", (string)null);
                 });
@@ -370,6 +398,9 @@ namespace SariSariPOS.Migrations
                     b.Property<Guid>("SaleId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("Subtotal")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -383,6 +414,8 @@ namespace SariSariPOS.Migrations
                     b.HasIndex("ProductId");
 
                     b.HasIndex("SaleId");
+
+                    b.HasIndex("StoreId", "SaleId");
 
                     b.ToTable("sale_items", (string)null);
                 });
@@ -414,6 +447,9 @@ namespace SariSariPOS.Migrations
                     b.Property<Guid?>("SaleId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("SupplierId")
                         .HasColumnType("uuid");
 
@@ -426,13 +462,45 @@ namespace SariSariPOS.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedAt");
-
                     b.HasIndex("ProductId");
 
                     b.HasIndex("SupplierId");
 
+                    b.HasIndex("StoreId", "CreatedAt");
+
+                    b.HasIndex("StoreId", "ProductId");
+
                     b.ToTable("stock_movements", (string)null);
+                });
+
+            modelBuilder.Entity("SariSariPOS.API.Entities.Store", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("stores", (string)null);
                 });
 
             modelBuilder.Entity("SariSariPOS.API.Entities.Supplier", b =>
@@ -454,6 +522,9 @@ namespace SariSariPOS.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -485,8 +556,21 @@ namespace SariSariPOS.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("StoreAddress")
                         .HasColumnType("text");
+
+                    b.Property<string>("StoreCode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("StoreName")
                         .IsRequired()
@@ -494,6 +578,10 @@ namespace SariSariPOS.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("StoreCode");
+
+                    b.HasIndex("StoreId", "Role");
 
                     b.ToTable("users", (string)null);
                 });
@@ -566,6 +654,17 @@ namespace SariSariPOS.Migrations
                     b.Navigation("Supplier");
                 });
 
+            modelBuilder.Entity("SariSariPOS.API.Entities.User", b =>
+                {
+                    b.HasOne("SariSariPOS.API.Entities.Store", "Store")
+                        .WithMany("Users")
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
             modelBuilder.Entity("SariSariPOS.API.Entities.Category", b =>
                 {
                     b.Navigation("Products");
@@ -588,6 +687,11 @@ namespace SariSariPOS.Migrations
             modelBuilder.Entity("SariSariPOS.API.Entities.Sale", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("SariSariPOS.API.Entities.Store", b =>
+                {
+                    b.Navigation("Users");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,13 +1,14 @@
-﻿using System.Net.ServerSentEvents;
+﻿using SariSariPOS.API.Interfaces;
 
 namespace SariSariPOS.API.Entities;
 
 public enum PaymentMethod { Cash, GCash, Maya, Utang }
 public enum SaleStatus { Completed, Voided }
 
-public class Sale
+public class Sale : ITenantEntity
 {
     public Guid Id { get; set; }
+    public Guid StoreId { get; set; }
     public string ReceiptNo { get; set; } = default!;
     public string ClientId { get; set; } = default!;
     public Guid? CustomerId { get; set; }

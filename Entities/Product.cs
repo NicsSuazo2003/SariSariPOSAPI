@@ -1,10 +1,11 @@
-﻿using System.Net.ServerSentEvents;
+﻿using SariSariPOS.API.Interfaces;
 
 namespace SariSariPOS.API.Entities;
 
-public class Product
+public class Product : ITenantEntity
 {
     public Guid Id { get; set; }
+    public Guid StoreId { get; set; }
     public string Name { get; set; } = default!;
     public string? Barcode { get; set; }
     public string QrCode { get; set; } = default!;

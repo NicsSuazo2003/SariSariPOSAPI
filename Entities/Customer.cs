@@ -1,8 +1,11 @@
-﻿namespace SariSariPOS.API.Entities;
+﻿using SariSariPOS.API.Interfaces;
 
-public class Customer
+namespace SariSariPOS.API.Entities;
+
+public class Customer : ITenantEntity
 {
     public Guid Id { get; set; }
+    public Guid StoreId { get; set; }
     public string Name { get; set; } = default!;
     public string? Phone { get; set; }
     public string QrCode { get; set; } = default!;
