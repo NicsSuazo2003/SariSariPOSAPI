@@ -54,6 +54,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // ── Services ────────────────────────────────────────
+builder.Services.AddHttpContextAccessor();                       // ← NEW
+builder.Services.AddScoped<ITenantContext, TenantContext>();     // ← NEW
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IProductService, ProductService>();
