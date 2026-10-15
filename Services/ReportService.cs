@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿
+using Microsoft.EntityFrameworkCore;
 using SariSariPOS.API.Data;
 using SariSariPOS.API.DTOs;
 using SariSariPOS.API.Entities;
@@ -9,6 +10,7 @@ namespace SariSariPOS.API.Services;
 public class ReportService : IReportService
 {
     private readonly AppDbContext _db;
+
     public ReportService(AppDbContext db) => _db = db;
 
     public async Task<DashboardDto> DashboardAsync()
@@ -25,28 +27,45 @@ public class ReportService : IReportService
             .ToListAsync();
 
         // ── Top products (last 30 days) ───────────────────────
-        // FIX: group by (ProductId, ProductName) so ProductName is a plain
-        // column reference — EF Core 10 cannot translate g.First().ProductName
-        // inside a GroupBy projection.
-        var top = await _db.SaleItems
+        // Project aggregate results into an anonymous type first,
+        // then construct DTOs after the database query completes.
+        var topRaw = await _db.SaleItems
             .Where(si => si.Sale.Status == SaleStatus.Completed
                       && si.Sale.ServerCreatedAt >= thirtyDaysAgo)
-            .GroupBy(si => new { si.ProductId, si.ProductName })
-            .Select(g => new TopProductDto(
-                g.Key.ProductId,
-                g.Key.ProductName,
-                g.Sum(x => x.Qty),
-                g.Sum(x => x.Subtotal)))
+            .GroupBy(si => new
+            {
+                si.ProductId,
+                si.ProductName
+            })
+            .Select(g => new
+            {
+                ProductId = g.Key.ProductId,
+                Name = g.Key.ProductName,
+                Qty = g.Sum(x => x.Qty),
+                Revenue = g.Sum(x => x.Subtotal)
+            })
             .OrderByDescending(x => x.Revenue)
             .Take(10)
             .ToListAsync();
+
+        var top = topRaw
+            .Select(x => new TopProductDto(
+                x.ProductId,
+                x.Name,
+                x.Qty,
+                x.Revenue))
+            .ToList();
 
         // ── Low stock items ───────────────────────────────────
         var low = await _db.Products
             .Where(p => p.IsActive && p.StockQty <= p.ReorderLevel)
             .OrderBy(p => p.StockQty)
             .Take(20)
-            .Select(p => new LowStockDto(p.Id, p.Name, p.StockQty, p.ReorderLevel))
+            .Select(p => new LowStockDto(
+                p.Id,
+                p.Name,
+                p.StockQty,
+                p.ReorderLevel))
             .ToListAsync();
 
         // ── Outstanding utang ─────────────────────────────────
@@ -55,17 +74,14 @@ public class ReportService : IReportService
             .SumAsync(c => (decimal?)c.CreditBalance) ?? 0;
 
         // ── Last 7 days sales chart ───────────────────────────
-        // EF Core 10 + Npgsql can't always translate GroupBy(s => s.ServerCreatedAt.Date),
-        // because "Date" is a client-side property on DateTime that maps to
-        // date_trunc() in some providers and fails in others. Grouping by
-        // ServerCreatedAt and truncating in memory is safe and simpler.
+        // Load the filtered sales and group by calendar date in memory.
         var dailyRaw = await _db.Sales
             .Where(s => s.Status == SaleStatus.Completed
                      && s.ServerCreatedAt >= sevenDaysAgo)
             .Select(s => new
             {
                 s.ServerCreatedAt,
-                s.TotalAmount,
+                s.TotalAmount
             })
             .ToListAsync();
 
@@ -98,15 +114,17 @@ public class ReportService : IReportService
     public async Task<SalesReportDto> SalesAsync(string period)
     {
         var now = DateTime.UtcNow;
+
         var (from, days, mode) = period?.ToLower() switch
         {
             "weekly" => (now.Date.AddDays(-27), 28, "day"),
             "monthly" => (now.Date.AddDays(-89), 90, "week"),
-            _ => (now.Date.AddDays(-6), 7, "day"),
+            _ => (now.Date.AddDays(-6), 7, "day")
         };
 
         var sales = await _db.Sales
-            .Where(s => s.Status == SaleStatus.Completed && s.ServerCreatedAt >= from)
+            .Where(s => s.Status == SaleStatus.Completed
+                     && s.ServerCreatedAt >= from)
             .ToListAsync();
 
         var points = new List<DailySalesPoint>();
@@ -116,9 +134,15 @@ public class ReportService : IReportService
             for (int i = 0; i < days; i++)
             {
                 var d = from.AddDays(i);
-                var daySales = sales.Where(s => s.ServerCreatedAt.Date == d).ToList();
-                points.Add(new DailySalesPoint(d.ToString("yyyy-MM-dd"),
-                    daySales.Sum(s => s.TotalAmount), daySales.Count));
+
+                var daySales = sales
+                    .Where(s => s.ServerCreatedAt.Date == d)
+                    .ToList();
+
+                points.Add(new DailySalesPoint(
+                    d.ToString("yyyy-MM-dd"),
+                    daySales.Sum(s => s.TotalAmount),
+                    daySales.Count));
             }
         }
         else
@@ -127,15 +151,21 @@ public class ReportService : IReportService
             {
                 var wStart = from.AddDays(i);
                 var wEnd = wStart.AddDays(7);
+
                 var weekSales = sales
-                    .Where(s => s.ServerCreatedAt >= wStart && s.ServerCreatedAt < wEnd)
+                    .Where(s => s.ServerCreatedAt >= wStart
+                             && s.ServerCreatedAt < wEnd)
                     .ToList();
-                points.Add(new DailySalesPoint(wStart.ToString("yyyy-MM-dd"),
-                    weekSales.Sum(s => s.TotalAmount), weekSales.Count));
+
+                points.Add(new DailySalesPoint(
+                    wStart.ToString("yyyy-MM-dd"),
+                    weekSales.Sum(s => s.TotalAmount),
+                    weekSales.Count));
             }
         }
 
         var total = sales.Sum(s => s.TotalAmount);
+
         return new SalesReportDto(
             total,
             sales.Count,
@@ -145,10 +175,6 @@ public class ReportService : IReportService
 
     public async Task<List<UtangOutstandingDto>> UtangOutstandingAsync()
     {
-        // FIX: the nested "LastTransactionAt" subquery relies on FirstOrDefault
-        // over a navigation collection. That translates in some providers, but
-        // in EF Core 10 + Npgsql it's flaky. Fetch the customer rows + the
-        // max transaction date in one query, then project.
         var customers = await _db.Customers
             .Where(c => c.CreditBalance > 0)
             .OrderByDescending(c => c.CreditBalance)
@@ -161,7 +187,7 @@ public class ReportService : IReportService
                 LastTransactionAt = c.Transactions
                     .OrderByDescending(t => t.CreatedAt)
                     .Select(t => (DateTime?)t.CreatedAt)
-                    .FirstOrDefault(),
+                    .FirstOrDefault()
             })
             .ToListAsync();
 
